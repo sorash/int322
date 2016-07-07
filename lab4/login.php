@@ -1,10 +1,14 @@
 <?php
 
-$error = "Invalid username or password.";
-$checked = false;
+$loginError = "Invalid username or password.";
+$recoveryUserError = "Please enter your username for password recovery.";
+$recoveryUserFoundError = "Your username was not found in the database.";
 
-$recoverPassUserChecked = false;
-$noUserFound = false;
+$loginChecked = false;
+$recoveryUserChecked = false;
+$recoveryUserFound = false;
+
+$recovery = false;
 
 // database info
 $dbserver = "db-mysql.zenit";
@@ -12,66 +16,80 @@ $uid = "int322_162b01";
 $pw = "";
 $table = "users";
 
-// recover password
-if($_GET && isset($_GET['recoverpass']))
+function GetConnection()
 {
-	/*
-	 * POST DOES NOT WORK HERE SINCE BUTTON IS NOT SUBMIT
-	 * TODO: FIX PLS B0SS THX
-	 */
+	global $dbserver;
+	global $uid;
+	global $pw;
+	global $table;
 	
-	// check if they entered a username
-	if(isset($_POST['username']))
-	{
-		$recoverPassUserChecked = true;
-		
-		// connect to database
-		$link = mysqli_connect($dbserver, $uid, $pw, $uid)
+	// connect to database
+	$link = mysqli_connect($dbserver, $uid, $pw, $uid)
 					or die('Could not connect: ' . mysqli_error($link));
-				
-		// get all records
-		$sql_query = "SELECT * from " . $table;
-		$result = mysqli_query($link, $sql_query) or die('Query failed: '. mysqli_error($link));
-		if($result)
-		{	
-			if (mysqli_num_rows($result) > 0) 
-			{
-				// loop through records and find the user that matches
-				while($row = mysqli_fetch_assoc($result)) 
-				{
-					if($row['username'] == $user)
-					{
-						// send email with username and password hint
-						$message = $row['username'] . "\r\n" . $row['passwordHint'];
-						mail($user, 'Your password recovery', $message);
-					}
-					else
-					{
-						echo "no user found";
-						$noUserFound = true;
-					}
-				}
-			}
-			else 
-				echo "No data in the database.";
-		}
-	}
+					
+	return $link;
+}
+
+function GetRecords($link, $table)
+{
+	// get all records
+	$sql_query = "SELECT * from " . $table;
+	$result = mysqli_query($link, $sql_query) or die('Query failed: '. mysqli_error($link));
+	
+	return $result;
 }
 
 // form submit
 if($_POST)
 {
-	// get info from user input
+	// forgot password
+	if(isset($_POST['forget']))
+	{
+		$recovery = true;
+	}
+	
+	// recover password
+	if(isset($_POST['recover']))
+	{
+		$recovery = true;
+		$user = $_POST['user'];
+		
+		// check if they entered a username
+		if($user != '')
+		{
+			$recoveryUserChecked = true;
+			
+			$result = GetRecords(GetConnection(), "users");
+			if($result)
+			{	
+				if (mysqli_num_rows($result) > 0) 
+				{
+					// loop through records and find the user that matches
+					while($row = mysqli_fetch_assoc($result)) 
+					{
+						if($row['username'] == $user)
+						{
+							$recoveryUserFound = true;
+							
+							// send email with username and password hint
+							$message = "Username: " . $row['username'] . "\r\n" . "Passowrd hint: " . $row['passwordHint'];
+							mail($user, 'Your password recovery', $message);
+						}
+					}
+				}
+				else 
+					echo "No data in the database.";
+			}
+		}
+	}
+	
+	else if(isset($_POST['submit']))
+	{
+		// get info from user input
 	$user = $_POST['user'];
 	$password = $_POST['password'];
 	
-	// connect to database
-	$link = mysqli_connect($dbserver, $uid, $pw, $uid)
-     	    	or die('Could not connect: ' . mysqli_error($link));
-	
-	// get all records
-	$sql_query = "SELECT * from " . $table;
-	$result = mysqli_query($link, $sql_query) or die('Query failed: '. mysqli_error($link));
+	$result = GetRecords(GetConnection(), $table);
 	if($result)
 	{	
 		if (mysqli_num_rows($result) > 0) 
@@ -81,7 +99,7 @@ if($_POST)
 			{
 				if($row['username'] == $user && $row['password'] == $password)
 				{
-					$checked = true;
+					$loginChecked = true;
 					
 					// create session
 					session_start();
@@ -96,6 +114,7 @@ if($_POST)
 		else 
 			echo "No data in the database.";
 	}
+	}
 }
 
 ?>
@@ -108,19 +127,29 @@ if($_POST)
 
   <body>
     <form method="post" action="login.php">
-	  <label style="display: inline-block; width: 100px; padding-bottom: 5px;">Username: </label><input type="text" name="user" id="user" value="<?php if($noUserFound) echo $user; ?>" />
-	  <?php 
-		if(!$_GET)
+	  <label style="display: inline-block; width: 100px; padding-bottom: 5px;">Username: </label><input type="text" name="user" id="user" />
+	  <?php
+		if(!$recovery)
 		{
 			echo "<br />" .
 				 "<label style='display: inline-block; width: 100px; padding-bottom: 15px;'>Password: </label><input type='password' name='password' id='password' />" .
 				 "<br />";
-			if($_POST){ if(!$checked) echo $error . "<br />";}
-			echo "<input style='margin-right: 5px;' type='submit' />";
-			echo "<input type='button' value='Forgot password' onclick=\"window.location='login.php?forgetpass';\" />";
+			if($_POST){ if(!$loginChecked) echo $loginError . "<br />";}
+			echo "<input style='margin-right: 5px;' type='submit' name='submit' />";
+			echo "<input type='submit' value='Forgot password' name='forget' />";
 		}
 		else
-			echo "<input type='button' value='Recover password' onclick=\"window.location='login.php?recoverpass';\" />";
+		{
+			echo "<input type='submit' value='Recover password' name='recover' />";
+		
+			if(isset($_POST['recover']))
+			{
+				if(!$recoveryUserChecked)
+					echo "<br />" . $recoveryUserError . "<br />";
+				if($recoveryUserChecked && !$recoveryUserFound)
+					echo "<br />" . $recoveryUserFoundError . "<br />";
+			}
+		}
 	  ?>
 	</form>
   </body>
