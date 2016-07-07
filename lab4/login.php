@@ -3,10 +3,12 @@
 $loginError = "Invalid username or password.";
 $recoveryUserError = "Please enter your username for password recovery.";
 $recoveryUserFoundError = "Your username was not found in the database.";
+$mailSentMsg = "A password recovery email has been sent to: ";
 
 $loginChecked = false;
 $recoveryUserChecked = false;
 $recoveryUserFound = false;
+$mailSent = false;
 
 $recovery = false;
 
@@ -49,7 +51,7 @@ if($_POST)
 	}
 	
 	// recover password
-	if(isset($_POST['recover']))
+	else if(isset($_POST['recover']))
 	{
 		$recovery = true;
 		$user = $_POST['user'];
@@ -74,6 +76,7 @@ if($_POST)
 							// send email with username and password hint
 							$message = "Username: " . $row['username'] . "\r\n" . "Passowrd hint: " . $row['passwordHint'];
 							mail($user, 'Your password recovery', $message);
+							$mailSent = true;
 						}
 					}
 				}
@@ -86,34 +89,32 @@ if($_POST)
 	else if(isset($_POST['submit']))
 	{
 		// get info from user input
-	$user = $_POST['user'];
-	$password = $_POST['password'];
+		$user = $_POST['user'];
+		$password = $_POST['password'];
 	
-	$result = GetRecords(GetConnection(), $table);
-	if($result)
-	{	
-		if (mysqli_num_rows($result) > 0) 
-		{
-			// loop through records and find the user and password that match
-			while($row = mysqli_fetch_assoc($result)) 
+		$result = GetRecords(GetConnection(), $table);
+		if($result)
+		{	
+			if (mysqli_num_rows($result) > 0) 
 			{
-				if($row['username'] == $user && $row['password'] == $password)
+				// loop through records and find the user and password that match
+				while($row = mysqli_fetch_assoc($result)) 
 				{
-					$loginChecked = true;
+					if($row['username'] == $user && $row['password'] == $password)
+					{
+						$loginChecked = true;
 					
-					// create session
-					session_start();
-					$_SESSION['loggedIn'] = true;
-					$_SESSION['username'] = $user;
+						// create session
+						session_start();
+						$_SESSION['loggedIn'] = true;
+						$_SESSION['username'] = $user;
 					
-					header('Location: protectedstuff.php?user=' . $user);	// redirect to protectedstuff page
-					break;
+						header('Location: protectedstuff.php?user=' . $user);	// redirect to protectedstuff page
+						break;
+					}
 				}
 			}
 		}
-		else 
-			echo "No data in the database.";
-	}
 	}
 }
 
@@ -148,6 +149,8 @@ if($_POST)
 					echo "<br />" . $recoveryUserError . "<br />";
 				if($recoveryUserChecked && !$recoveryUserFound)
 					echo "<br />" . $recoveryUserFoundError . "<br />";
+				if($mailSent)
+					echo "<br />" . $mailSentMsg . $user . "<br />";
 			}
 		}
 	  ?>
