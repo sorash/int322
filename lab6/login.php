@@ -1,38 +1,18 @@
 <?php
 
+include_once("myClasses.php");
+
 $loginError = "Invalid username or password.";
 $loginChecked = false;
 $hide = false;
 
-// database info
-$dbserver = "db-mysql.zenit";
-$uid = "int322_162b01";
-$pw = "";
-$table = "users";
-
 $salt = "1234";
 
-function GetConnection()
-{
-	global $dbserver;
-	global $uid;
-	global $pw;
-	global $table;
-	
-	// connect to database
-	$link = mysqli_connect($dbserver, $uid, $pw, $uid)
-					or die('Could not connect: ' . mysqli_error($link));
-					
-	return $link;
-}
-
-function GetRecords($link, $table)
+function GetRecords($table)
 {
 	// get all records
-	$sql_query = "SELECT * from " . $table;
-	$result = mysqli_query($link, $sql_query) or die('Query failed: '. mysqli_error($link));
-	
-	return $result;
+	$link = new Connection();
+	return ($result = $link->Query("SELECT * from " . $table));
 }
 
 // form submit
@@ -44,7 +24,7 @@ if($_POST)
 		$user = $_POST['user'];
 		$password = $_POST['password'];
 		
-		$result = GetRecords(GetConnection(), $table);
+		$result = GetRecords("users");
 		if($result)
 		{	
 			if (mysqli_num_rows($result) > 0) 
